@@ -287,11 +287,19 @@ void Search(
 			{
 				if ( *buf != '\t' )
 				{
-					boost::cmatch matches;
-					if ( commentRegexStr.empty() || boost::regex_match( curRevision.comment.c_str(), matches, commentReg ) )
-						revisionList.push_back( curRevision );
-
 					readMode = ReadMode::Normal;
+
+					// check the date
+					if ( !startDate.empty() && curRevision.date < startDate ) break;
+
+					// check the comment
+					boost::cmatch matches;
+					if (
+						!commentRegexStr.empty() &&
+						!boost::regex_match( curRevision.comment.c_str(), matches, commentReg ) )
+						break;
+
+					revisionList.push_back( curRevision );
 					break;
 				}
 
@@ -564,7 +572,9 @@ int main()
 			p( "</td>" );
 // 			p( "<tr><td>File</td><td><input type='text' name='fileRegex' value='%s' /></td>", fileNameRegex.c_str() );
 // 			p( "</tr>" );
-			p( "<tr><td>Start Date</td><td><input type='text' name='startDate' value='%s' /></td>", startDate.c_str() );
+			p( "<tr>" );
+			p( "<td>Start Date</td><td><input type = 'text' name = 'startDate' value = '%s' /></td>", startDate.c_str() );
+			p( "<td>yyyy/mm/dd ex)2017/10/29</td>" );
 			p( "</tr>" );
 			p( "</table>" );
 			p( "<input type='submit' value='Search' onClick='OnSearchButtonPressed()' />" );
