@@ -216,12 +216,18 @@ void Search(
 	const std::string& depot,
 	const std::string& commentRegexStr,
 	const std::string& fileNameRegexStr,
+	      int          startRevision,
 	const std::string& startDate,
 	      bool         downloadMode,
 	      Buffer&      result )
 {
 	char buf[ 1024 * 100 ];
-	sprintf_s( buf, sizeof( buf ) - 1, "p4 -C utf8 changes -s submitted -l -m 2000 //depot/%s... > log.txt", depot.c_str() );
+	if ( startRevision )
+		sprintf_s( buf, sizeof( buf ) - 1, "p4 -C utf8 changes -l \"//depot/%s...@>=%d\" > log.txt", depot.c_str(), startRevision );
+	else if ( !startDate.empty() )
+		sprintf_s( buf, sizeof( buf ) - 1, "p4 -C utf8 changes -l @%s,@now //depot/%s... > log.txt", startDate.c_str(), depot.c_str() );
+	else
+		sprintf_s( buf, sizeof( buf ) - 1, "p4 -C utf8 changes -s submitted -l -m 2000 //depot/%s... > log.txt", depot.c_str() );
 	system( buf );
 
 	FILE* logFile = fopen( "log.txt", "r" );
@@ -288,6 +294,9 @@ void Search(
 				if ( *buf != '\t' )
 				{
 					readMode = ReadMode::Normal;
+
+					// check the revision
+					if ( startRevision && curRevision.num < startRevision ) break;
 
 					// check the date
 					if ( !startDate.empty() && curRevision.date < startDate ) break;
@@ -519,11 +528,13 @@ int main()
 		std::string fileNameRegex = paramMap[ "fileRegex"    ];
 		std::string startDate     = paramMap[ "startDate"    ];
 
+		int startRevision = atoi( paramMap[ "startRevision" ].c_str() );
+
 		if ( command == "Download" )
 		{
 			res.add_header( "Content-Type", "application/octet-stream" );
 			res.add_header( "Content-Disposition", "1; filename=result.csv" );
-			Search( depot, commentRegex, fileNameRegex, startDate, true, result );
+			Search( depot, commentRegex, fileNameRegex, startRevision, startDate, true, result );
 			res.write( result.GetResult() );
 			res.end();
 			return;
@@ -573,6 +584,9 @@ int main()
 // 			p( "<tr><td>File</td><td><input type='text' name='fileRegex' value='%s' /></td>", fileNameRegex.c_str() );
 // 			p( "</tr>" );
 			p( "<tr>" );
+			p( "<td>Start Revision</td><td><input type = 'text' name = 'startRevision' value = '%d' /></td>", startRevision );
+			p( "</tr>" );
+			p( "<tr>" );
 			p( "<td>Start Date</td><td><input type = 'text' name = 'startDate' value = '%s' /></td>", startDate.c_str() );
 			p( "<td>yyyy/mm/dd ex)2017/10/29</td>" );
 			p( "</tr>" );
@@ -582,7 +596,7 @@ int main()
 			if ( command == "Search" )
 			{
 				p( "<input type='button' value='Download' onClick='OnDownloadButtonPressed()' />" );
-				Search( depot, commentRegex, fileNameRegex, startDate, false, result );
+				Search( depot, commentRegex, fileNameRegex, startRevision, startDate, false, result );
 			}
 		}
 
