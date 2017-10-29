@@ -21,73 +21,23 @@ if ( !(condition) )                                                            \
 
 #define p result.AppendLine
 
-std::string perforceHost;
-int         perforcePort;
-std::string perforceUserId;
-std::string perforceUserPw;
-std::string perforceWorkspace;
+std::string password;
 int         mode;
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-/// @brief	returns branch mapping between branch1 and branch2
-///
-/// @param	branch1	first branch
-/// @param	branch2	second branch
-/// @param	whether or not it's reverse
-///
-/// @return	branch mapping
-////////////////////////////////////////////////////////////////////////////////////////////////////
-std::string GetBranchMapping( std::string& branch1, std::string& branch2, bool& reverse )
-{
-	char buf[ 256 ];
-	sprintf_s(
-		buf, sizeof( buf ) - 1,
-		"p4 -C cp949 -c %s -p %s:%d -u %s -P %s branches > log.txt",
-	perforceWorkspace.c_str(),
-	perforceHost.c_str(),
-	perforcePort,
-	perforceUserId.c_str(),
-	perforceUserPw.c_str() );
-	system( buf );
-
-	std::list< std::string > branchNameList;
-	FILE* file = fopen( "log.txt", "r" );
-	while ( fgets( buf, sizeof( buf ), file ) )
-	{
-		char* token = strtok( buf, " " );
-		char* branchName = strtok( nullptr, " " );
-		branchNameList.push_back( branchName );
-	}
-	fclose( file );
-
-	for ( const std::string& branchName : branchNameList )
-	{
-		std::size_t pos1 = branchName.find( branch1 );
-		if ( pos1 == std::string::npos ) continue;
-
-		std::size_t pos2 = branchName.find( branch2 );
-		if ( pos2 == std::string::npos ) continue;
-
-		reverse = (pos1 > 0);
-		return branchName;
-	}
-
-	return "invalid_branch";
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 /// @brief	reads config
-///
-/// @param	name		name of user
-/// @param	branchMap	map of branches
 ///
 /// @return	success or failure
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-bool ReadConfig( std::string& name, std::unordered_map< std::string, std::string >& branchMap )
+bool ReadConfig()
 {
 	FILE* configFile = fopen( "config.txt", "r" );
-	if ( !configFile ) return false;
+	if ( !configFile )
+	{
+		printf( "ReadConfig, configFile == nullptr\n" );
+		return false;
+	}
 
 	char buf[ 1024 * 100 ];
 	while ( fgets( buf, sizeof( buf ) - 1, configFile ) )
@@ -95,24 +45,8 @@ bool ReadConfig( std::string& name, std::unordered_map< std::string, std::string
 		char* token = strtok( buf, " \t" );
 		if ( !token ) continue;
 
-		if ( !strcmp( token, "name" ) )
-			name = strtok( nullptr, " \t\r\n" );
-		else if ( !strcmp( token, "perforce_host" ) )
-			perforceHost = strtok( nullptr, " \t\r\n" );
-		else if ( !strcmp( token, "perforce_port" ) )
-			perforcePort = atoi( strtok( nullptr, " \t\r\n" ) );
-		else if ( !strcmp( token, "perforce_user_id" ) )
-			perforceUserId = strtok( nullptr, " \t\r\n" );
-		else if ( !strcmp( token, "perforce_user_pw" ) )
-			perforceUserPw = strtok( nullptr, " \t\r\n" );
-		else if ( !strcmp( token, "perforce_workspace" ) )
-			perforceWorkspace = strtok( nullptr, " \t\r\n" );
-		else if ( !strcmp( token, "branch" ) )
-		{
-			std::string branchName = strtok( nullptr, " \t" );
-			std::string branchPath = strtok( nullptr, " \t\r\n" );
-			branchMap[ branchName ] = branchPath;
-		}
+		if ( !strcmp( token, "password" ) )
+			password = strtok( nullptr, " \t\r\n" );
 	}
 
 	fclose( configFile );
@@ -437,18 +371,18 @@ void Search(
 		p( "Revision,Date,Comment" );
 		for ( const RevisionInfo& revision : revisionList )
 		{
-			bool matched = false;
-			for ( const std::string& fileName : revision.fileList )
-			{
-				boost::cmatch matches;
-				if ( boost::regex_match( fileName.c_str(), matches, fileNameReg ) )
-				{
-					matched = true;
-					break;
-				}
-			}
-
-			if ( !matched ) continue;
+// 			bool matched = false;
+// 			for ( const std::string& fileName : revision.fileList )
+// 			{
+// 				boost::cmatch matches;
+// 				if ( boost::regex_match( fileName.c_str(), matches, fileNameReg ) )
+// 				{
+// 					matched = true;
+// 					break;
+// 				}
+// 			}
+// 
+// 			if ( !matched ) continue;
 			p(
 				"%d,\"%s\",\"%s\",",
 				revision.num, revision.date.c_str(), Replace( revision.comment, "\"", "\"\"" ).c_str() );
@@ -501,6 +435,12 @@ void _ParseRequestParams( const std::string& paramPart, std::unordered_map< std:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int main()
 {
+	if ( !ReadConfig() )
+	{
+		printf( "main, failed to ReadConfig\n" );
+		return 1;
+	}
+
 	crow::SimpleApp app;
 
 	CROW_ROUTE( app, "/" )
@@ -514,10 +454,10 @@ int main()
 		std::unordered_map< std::string, std::string > paramMap;
 		_ParseRequestParams( req.body, paramMap );
 
-		std::string token = "lin123!@#";
-// 		std::string token = paramMap[ "token" ];
-// 		if ( !token.empty() && token != "lin123!@#" )
-// 			token = "";
+		std::string token = paramMap[ "token" ];
+		printf( "[%s][%s]\n", token.c_str(), password.c_str() );
+		if ( !token.empty() && token != password )
+			token = "";
 
 		std::string command = paramMap[ "command" ];
 		std::string depot = paramMap[ "depot" ];
