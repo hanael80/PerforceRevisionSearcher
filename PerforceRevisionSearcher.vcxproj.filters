@@ -1,0 +1,97 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Source Files\crow">
+      <UniqueIdentifier>{bb914744-7c15-4cf0-baa9-b2b99f964401}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\crow\crow">
+      <UniqueIdentifier>{c6b36757-cc55-4393-a849-5d57233004c3}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stdafx.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\app.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\ci_map.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\common.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\dumb_timer_queue.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\http_connection.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\http_parser_merged.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\http_request.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\http_response.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\http_server.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\json.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\logging.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\middleware.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\middleware_context.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\mustache.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\parser.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\query_string.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\routing.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\settings.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\socket_adaptors.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\TinySHA1.hpp">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\utility.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+    <ClInclude Include="crow\crow\websocket.h">
+      <Filter>Source Files\crow\crow</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PerforceMergeHelper.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
