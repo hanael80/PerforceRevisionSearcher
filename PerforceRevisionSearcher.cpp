@@ -254,6 +254,23 @@ void Search(
 
 	fclose( logFile );
 
+	// When searching revisions with date, p4 doesn't filter the depot.
+	// So we use only first revision number, then search again with this revision number.
+	// When searching revisions with a revision number, p4 filters the depot.
+	if ( !startDate.empty() && !revisionList.empty() )
+	{
+		const RevisionInfo& revisionInfo = revisionList.back();
+
+		return Search(
+			depot,
+			commentRegexStr,
+			fileNameRegexStr,
+			revisionInfo.num,
+			"",
+			downloadMode,
+			result );
+	}
+
 // 	std::list< std::string > depotList;
 // 	depotList.push_back( "//depot/" + depot );
 // 
