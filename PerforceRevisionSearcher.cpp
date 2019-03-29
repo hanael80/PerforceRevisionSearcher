@@ -26,6 +26,40 @@ int         mode;
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+/// @class	Mode
+/// 
+/// @brief	mode
+////////////////////////////////////////////////////////////////////////////////////////////////////
+enum class Mode
+{
+	Search   = 0, ///< search changelists
+	Download = 1, ///< download csv of changelists
+	Job      = 2, ///< makes job
+	Max           ///< max value of this enum
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// @brief	convert utf8 to ansi string
+///
+/// @param	utf8str	utf string
+///
+/// @return	ansi string
+////////////////////////////////////////////////////////////////////////////////////////////////////
+std::string utf8_to_ansi( const std::string& utf8str )
+{
+	int srcLen = (int)( utf8str.length() );
+    int length = MultiByteToWideChar( CP_UTF8, 0, utf8str.c_str(), srcLen + 1, 0, 0 );
+	if ( length <= 0 ) return "";
+
+    std::wstring wtemp( length, (wchar_t)( 0 ) );
+    MultiByteToWideChar( CP_UTF8, 0, utf8str.c_str(), srcLen + 1, &wtemp[ 0 ], length );
+    length = WideCharToMultiByte( CP_ACP, 0, &wtemp[ 0 ], -1, 0, 0, 0, 0 );
+    std::string temp(length, (char)( 0 ) );
+    WideCharToMultiByte( CP_ACP, 0, &wtemp[ 0 ], -1, &temp[ 0 ], length, 0, 0 );
+    return temp;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 /// @brief	reads config
 ///
 /// @return	success or failure
@@ -152,16 +186,23 @@ void Search(
 	const std::string& fileNameRegexStr,
 	      int          startRevision,
 	const std::string& startDate,
-	      bool         downloadMode,
+	      Mode         mode,
+	const std::string& param,
 	      Buffer&      result )
 {
+	if ( mode == Mode::Job && commentRegexStr.empty() )
+	{
+		p( "<script>alert( 'keyword is empty' );</script>" );
+		return;
+	}
+
 	char buf[ 1024 * 100 ];
 	if ( startRevision )
-		sprintf_s( buf, sizeof( buf ) - 1, "p4 -C utf8 changes -l \"//depot/%s...@>=%d\" > log.txt", depot.c_str(), startRevision );
+		sprintf_s( buf, sizeof( buf ) - 1, "p4 -C utf8 changes -t -l \"//depot/%s...@>=%d\" > log.txt", depot.c_str(), startRevision );
 	else if ( !startDate.empty() )
-		sprintf_s( buf, sizeof( buf ) - 1, "p4 -C utf8 changes -l @%s,@now //depot/%s... > log.txt", startDate.c_str(), depot.c_str() );
+		sprintf_s( buf, sizeof( buf ) - 1, "p4 -C utf8 changes -t -l @%s,@now //depot/%s... > log.txt", startDate.c_str(), depot.c_str() );
 	else
-		sprintf_s( buf, sizeof( buf ) - 1, "p4 -C utf8 changes -s submitted -l -m 2000 //depot/%s... > log.txt", depot.c_str() );
+		sprintf_s( buf, sizeof( buf ) - 1, "p4 -C utf8 changes -t -s submitted -l -m 2000 //depot/%s... > log.txt", depot.c_str() );
 	system( buf );
 
 	FILE* logFile = fopen( "log.txt", "r" );
@@ -171,7 +212,7 @@ void Search(
 	{
 	public:
 		int num;
-		std::string date;
+		std::string time;
 		std::string comment;
 		std::list< std::string > fileList;
 	};
@@ -217,7 +258,10 @@ void Search(
 				curRevision.num = atoi( token );
 				token = strtok( nullptr, " " );
 				token = strtok( nullptr, " " );
-				curRevision.date = token;
+				curRevision.time = token;
+				token = strtok( nullptr, " " );
+				curRevision.time += " ";
+				curRevision.time += token;
 				ENSURE( fgets( buf, sizeof( buf ) - 1, logFile ), return );
 				readMode = ReadMode::Comment;
 				curRevision.comment = "";
@@ -233,7 +277,7 @@ void Search(
 					if ( startRevision && curRevision.num < startRevision ) break;
 
 					// check the date
-					if ( !startDate.empty() && curRevision.date < startDate ) break;
+					if ( !startDate.empty() && curRevision.time < startDate ) break;
 
 					// check the comment
 					boost::cmatch matches;
@@ -267,7 +311,8 @@ void Search(
 			fileNameRegexStr,
 			revisionInfo.num,
 			"",
-			downloadMode,
+			mode,
+			param,
 			result );
 	}
 
@@ -337,7 +382,7 @@ void Search(
 // 		fclose( logFile );
 // 	}
 
-	if ( !downloadMode )
+	if ( mode == Mode::Search || mode == Mode::Job )
 	{
 		p( "<div class='contentContainer'>" );
 		p( "<table class='overviewSummary' border=0 cellpadding=3 cellspacing=0 style='border-collapse:collapse; border:1px gray solid;'>" );
@@ -345,8 +390,9 @@ void Search(
 		p( "<tr class='altColor'>" );
 		p( "<th class='colFirst' scope='col'>Revision</th>" );
 		p( "<th class='colOne' scope='col'>Date</th>" );
-		p( "<th class='colLast' scope='col'>Comment</th>" );
+		p( "<th class='colOne' scope='col'>Comment</th>" );
 //		p( "<th class='colLast' scope='col'>File</th>" );
+// 		p( "<th class='colLast' scope='col'>Open</th>" );
 		p( "</tr>" );
 
 		int index = 0;
@@ -371,13 +417,22 @@ void Search(
 				p( "<tr class=rowColor>" );
 
 			p( "<td class='colFirst'>%d</td>", revision.num );
-			p( "<td class='colOne'>%s</td>", revision.date.c_str() );
-			p( "<td class='colLast'><pre>%s</pre></td>", revision.comment.c_str() );
+			p( "<td class='colOne'>%s</td>", revision.time.c_str() );
+			p( "<td class='colOne'><pre>%s</pre></td>", revision.comment.c_str() );
 // 			p( "<td class='colLast'>" );
 // 			for ( const std::string& fileName : revision.fileList )
 // 				p( "%s<br/>", fileName.c_str() );
 // 			p( "</td>" );
+// 			p( "<td class='colLast'><a href='p4vc://change%%20%d'>Open</a></td>", revision.num );
 			p( "</tr>" );
+
+			if ( mode == Mode::Job )
+			{
+				sprintf_s(
+					buf, sizeof( buf ) - 1,
+					"p4 -C cp949 fix -s same -c %d \"%s\"", revision.num, utf8_to_ansi( param ).c_str() );
+				system( buf );
+			}
 		}
 		p( "</table>" );
 		p( "</div>" );
@@ -402,7 +457,7 @@ void Search(
 // 			if ( !matched ) continue;
 			p(
 				"%d,\"%s\",\"%s\",",
-				revision.num, revision.date.c_str(), Replace( revision.comment, "\"", "\"\"" ).c_str() );
+				revision.num, revision.time.c_str(), Replace( revision.comment, "\"", "\"\"" ).c_str() );
 		}
 	}
 
@@ -464,106 +519,125 @@ int main()
 		.methods( "GET"_method, "POST"_method )
 		( []( const crow::request& req, crow::response& res )
 	{
-		Buffer result;
-
-		printf( "%s\n", req.body.c_str() );
-
-		std::unordered_map< std::string, std::string > paramMap;
-		_ParseRequestParams( req.body, paramMap );
-
-		std::string token = paramMap[ "token" ];
-		printf( "[%s][%s]\n", token.c_str(), password.c_str() );
-		if ( !token.empty() && token != password )
-			token = "";
-
-		std::string command = paramMap[ "command" ];
-		std::string depot = paramMap[ "depot" ];
-		if ( depot.empty() )
-			depot = "Trunk";
-
-		std::string commentRegex  = paramMap[ "commentRegex" ];
-		std::string fileNameRegex = paramMap[ "fileRegex"    ];
-		std::string startDate     = paramMap[ "startDate"    ];
-
-		int startRevision = atoi( paramMap[ "startRevision" ].c_str() );
-
-		if ( command == "Download" )
+		try
 		{
-			res.add_header( "Content-Type", "application/octet-stream" );
-			res.add_header( "Content-Disposition", "1; filename=result.csv" );
-			Search( depot, commentRegex, fileNameRegex, startRevision, startDate, true, result );
+			Buffer result;
+
+			printf( "%s\n", req.body.c_str() );
+
+			std::unordered_map< std::string, std::string > paramMap;
+			_ParseRequestParams( req.body, paramMap );
+
+			std::string token = paramMap[ "token" ];
+			if ( !token.empty() && token != password )
+				token = "";
+
+			std::string command = paramMap[ "command" ];
+			std::string depot = paramMap[ "depot" ];
+			if ( depot.empty() )
+				depot = "Trunk";
+
+			std::string commentRegex  = paramMap[ "commentRegex" ];
+			std::string fileNameRegex = paramMap[ "fileRegex"    ];
+			std::string startDate     = paramMap[ "startDate"    ];
+			std::string jobName       = paramMap[ "jobName"      ];
+
+			int startRevision = atoi( paramMap[ "startRevision" ].c_str() );
+
+			if ( command == "Download" )
+			{
+				res.add_header( "Content-Type", "application/octet-stream" );
+				res.add_header( "Content-Disposition", "1; filename=result.csv" );
+				Search( depot, commentRegex, fileNameRegex, startRevision, startDate, Mode::Download, "", result );
+				res.write( result.GetResult() );
+				res.end();
+				return;
+			}
+
+			p( "<html>" );
+			p( "<head>" );
+			p( "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf8\">" );
+			p( "<link rel='stylesheet' type='text/css' href='StyleSheet.css' title='Style'>" );
+			p( "</head>" );
+			p( "<body>" );
+			p( "<form name=form method=post>" );
+			p( "<input type='hidden' name='token' value='%s'/>", token.c_str() );
+			if ( token.empty() )
+			{
+				p( "<script>" );
+				p( "function OnLoginButtonPressed()" );
+				p( "{" );
+				p( "	form.submit();" );
+				p( "}" );
+				p( "</script>" );
+				p( "Password: <input type='password' name='token' />" );
+				p( "<input type='submit' value='Login' />" );
+			}
+			else
+			{
+				p( "<script>" );
+				p( "function OnSearchButtonPressed()" );
+				p( "{" );
+				p( "	form.command.value = 'Search';" );
+				p( "	form.submit();" );
+				p( "}" );
+				p( "function OnDownloadButtonPressed()" );
+				p( "{" );
+				p( "	form.command.value = 'Download';" );
+				p( "	form.submit();" );
+				p( "}" );
+				p( "function OnJobButtonPressed()" );
+				p( "{" );
+				p( "	form.command.value = 'Job';" );
+				p( "	form.submit();" );
+				p( "}" );
+				p( "</script>" );
+				p( "<table>" );
+				p( "<input type='hidden' name='command' />" );
+				p( "<tr><td>Depot</td><td><input type='text' name='depot' value='%s' /></td><td>ex) Trunk/Server, Branches/KO/QA/Client, Branches/JP/Dev/Server</tr>", depot.c_str() );
+				p( "<tr><td>Comment</td><td><input type='text' name='commentRegex' value='%s' /></td>", commentRegex.c_str() );
+				p( "<td>" );
+				p( "Keyword1 AND Keyword2: (?=.*Keyword1)(?=.*Keyword2)<br/>" );
+				p( "Keyword1 OR Keyword2: (Keyword1)|(Keyword2)" );
+				p( "</td>" );
+	// 			p( "<tr><td>File</td><td><input type='text' name='fileRegex' value='%s' /></td>", fileNameRegex.c_str() );
+	// 			p( "</tr>" );
+				p( "<tr>" );
+				p( "<td>Start Revision</td><td><input type = 'text' name = 'startRevision' value = '%d' /></td>", startRevision );
+				p( "</tr>" );
+				p( "<tr>" );
+				p( "<td>Start Date</td><td><input type = 'text' name = 'startDate' value = '%s' /></td>", startDate.c_str() );
+				p( "<td>yyyy/mm/dd ex)2017/10/29</td>" );
+				p( "</tr>" );
+				p( "</table>" );
+				p( "<input type='submit' value='Search' onClick='OnSearchButtonPressed()' />" );
+		
+				if ( command == "Search" )
+				{
+					p( "<input type='button' value='Download' onClick='OnDownloadButtonPressed()' />" );
+					p( "Job Name<input type='text' name='jobName' value='%s' /></td>", jobName.c_str() );
+					p( "<input type='button' value='Job' onClick='OnJobButtonPressed()' />" );
+					Search( depot, commentRegex, fileNameRegex, startRevision, startDate, Mode::Search, "", result );
+				}
+				else if ( command == "Job" )
+				{
+					p( "<input type='button' value='Download' onClick='OnDownloadButtonPressed()' />" );
+					Search( depot, commentRegex, fileNameRegex, startRevision, startDate, Mode::Job, jobName, result );
+				}
+			}
+
+			p( "</form>" );
+			p( "<form name=downloadForm method=post action=Download.html>" );
+			p( "</body>" );
+			p( "</html>" );
+
 			res.write( result.GetResult() );
 			res.end();
-			return;
 		}
-
-		p( "<html>" );
-		p( "<head>" );
-		p( "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf8\">" );
-		p( "<link rel='stylesheet' type='text/css' href='StyleSheet.css' title='Style'>" );
-		p( "</head>" );
-		p( "<body>" );
-		p( "<form name=form method=post>" );
-		p( "<input type='hidden' name='token' value='%s'/>", token.c_str() );
-		if ( token.empty() )
+		catch ( std::exception& e )
 		{
-			p( "<script>" );
-			p( "function OnLoginButtonPressed()" );
-			p( "{" );
-			p( "	form.submit();" );
-			p( "}" );
-			p( "</script>" );
-			p( "Password: <input type='password' name='token' />" );
-			p( "<input type='submit' value='Login' />" );
+			printf( "%s\n", e.what() );
 		}
-		else
-		{
-			p( "<script>" );
-			p( "function OnSearchButtonPressed()" );
-			p( "{" );
-			p( "	form.command.value = 'Search';" );
-			p( "	form.submit();" );
-			p( "}" );
-			p( "function OnDownloadButtonPressed()" );
-			p( "{" );
-			p( "	form.command.value = 'Download';" );
-			p( "	form.submit();" );
-			p( "}" );
-			p( "</script>" );
-			p( "<table>" );
-			p( "<input type='hidden' name='command' />" );
-			p( "<tr><td>Depot</td><td><input type='text' name='depot' value='%s' /></td><td>ex) Trunk/Server, Branches/KO/QA/Client, Branches/JP/Dev/Server</tr>", depot.c_str() );
-			p( "<tr><td>Comment</td><td><input type='text' name='commentRegex' value='%s' /></td>", commentRegex.c_str() );
-			p( "<td>" );
-			p( "Keyword1 AND Keyword2: (?=.*Keyword1)(?=.*Keyword2)<br/>" );
-			p( "Keyword1 OR Keyword2: (Keyword1)|(Keyword2)" );
-			p( "</td>" );
-// 			p( "<tr><td>File</td><td><input type='text' name='fileRegex' value='%s' /></td>", fileNameRegex.c_str() );
-// 			p( "</tr>" );
-			p( "<tr>" );
-			p( "<td>Start Revision</td><td><input type = 'text' name = 'startRevision' value = '%d' /></td>", startRevision );
-			p( "</tr>" );
-			p( "<tr>" );
-			p( "<td>Start Date</td><td><input type = 'text' name = 'startDate' value = '%s' /></td>", startDate.c_str() );
-			p( "<td>yyyy/mm/dd ex)2017/10/29</td>" );
-			p( "</tr>" );
-			p( "</table>" );
-			p( "<input type='submit' value='Search' onClick='OnSearchButtonPressed()' />" );
-		
-			if ( command == "Search" )
-			{
-				p( "<input type='button' value='Download' onClick='OnDownloadButtonPressed()' />" );
-				Search( depot, commentRegex, fileNameRegex, startRevision, startDate, false, result );
-			}
-		}
-
-		p( "</form>" );
-		p( "<form name=downloadForm method=post action=Download.html>" );
-		p( "</body>" );
-		p( "</html>" );
-
-		res.write( result.GetResult() );
-		res.end();
 	} );
 
 	CROW_ROUTE( app, "/StyleSheet.css" )
